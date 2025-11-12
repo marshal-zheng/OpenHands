@@ -29,6 +29,12 @@ FROM dind AS openhands
 
 ENV DEBIAN_FRONTEND=noninteractive
 
+# Use USTC (mirrors.ustc.edu.cn) for apt to speed up and stabilize package downloads in China.
+# Replace Ubuntu archive and security mirrors with USTC mirror before any apt operations.
+RUN sed -i.bak \
+	-e 's|http://archive.ubuntu.com/ubuntu/|https://mirrors.ustc.edu.cn/ubuntu/|g' \
+	-e 's|http://security.ubuntu.com/ubuntu/|https://mirrors.ustc.edu.cn/ubuntu/|g' \
+	/etc/apt/sources.list || true
 #
 RUN apt-get update && apt-get install -y \
 	bash \
