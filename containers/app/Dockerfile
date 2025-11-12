@@ -1,4 +1,5 @@
 ARG OPENHANDS_BUILD_VERSION=dev
+ARG APT_MIRROR="https://mirrors.ustc.edu.cn/debian/"
 FROM node:24.8-trixie-slim AS frontend-builder
 
 WORKDIR /app
@@ -10,6 +11,9 @@ COPY frontend ./
 RUN npm run build
 
 FROM python:3.13.7-slim-trixie AS base
+ARG APT_MIRROR
+ENV DEBIAN_FRONTEND=noninteractive
+
 FROM base AS backend-builder
 
 WORKDIR /app
@@ -20,8 +24,14 @@ ENV POETRY_NO_INTERACTION=1 \
     POETRY_VIRTUALENVS_CREATE=1 \
     POETRY_CACHE_DIR=/tmp/poetry_cache
 
-RUN apt-get update -y \
-    && apt-get install -y curl make git build-essential jq gettext \
+RUN sed -i.bak \
+        -e "s|http://deb.debian.org/debian|${APT_MIRROR%/}|g" \
+        -e "s|http://security.debian.org/debian-security|${APT_MIRROR%/}|g" \
+        /etc/apt/sources.list || true \
+    && apt-get update -y \
+    && apt-get install -y --no-install-recommends curl make git build-essential jq gettext \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean \
     && python3 -m pip install poetry --break-system-packages
 
 COPY pyproject.toml poetry.lock ./
@@ -49,9 +59,14 @@ ENV INIT_GIT_IN_EMPTY_WORKSPACE=1
 RUN mkdir -p $FILE_STORE_PATH
 RUN mkdir -p $WORKSPACE_BASE
 
-RUN apt-get update -y \
-    && apt-get install -y curl ssh sudo \
-    && rm -rf /var/lib/apt/lists/*
+RUN sed -i.bak \
+        -e "s|http://deb.debian.org/debian|${APT_MIRROR%/}|g" \
+        -e "s|http://security.debian.org/debian-security|${APT_MIRROR%/}|g" \
+        /etc/apt/sources.list || true \
+    && apt-get update -y \
+    && apt-get install -y --no-install-recommends curl ssh sudo \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
 # Default is 1000, but OSX is often 501
 RUN sed -i 's/^UID_MIN.*/UID_MIN 499/' /etc/login.defs
